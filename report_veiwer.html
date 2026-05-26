@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEO Analysis Report</title>
+
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Configure Tailwind for dark mode and Inter font -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                },
+            },
+        }
+    </script>
+
+    <!-- Link to your custom CSS file -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-900 text-gray-200 min-h-screen p-4 md:p-8">
+
+    <!-- Animated Gradient Background -->
+    <div class="background-animation"></div>
+
+    <div class="max-w-4xl mx-auto relative z-10">
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-teal-300 animate-fade-in-down">
+                SEO Analysis Report
+            </h1>
+        </header>
+
+        <!-- Loading Message -->
+        <div id="loading-container" class="text-center p-8 glass-card animate-fade-in">
+            <p class="text-lg text-gray-300">Loading analysis from report.json...</p>
+        </div>
+
+        <!-- Error Message Container -->
+        <div id="error-container" class="hidden glass-card-error p-4 text-red-100 rounded-lg mb-8 text-center animate-fade-in">
+            <p class="font-semibold">Error Loading Report</p>
+            <p id="error-message" class="text-sm"></p>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results-container" class="hidden">
+            <div class="mb-6 p-4 glass-card animate-fade-in-down" style="animation-delay: 100ms;">
+                <h2 class="text-xl md:text-2xl font-semibold text-gray-100 truncate" id="report-url-title"></h2>
+                <a href="#" id="report-url-link" target="_blank" rel="noopener noreferrer" class="text-sm text-blue-400 hover:text-blue-300 truncate block"></a>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Card 1: Content Analysis -->
+                <div id="content-card" class="glass-card animate-fade-in" style="animation-delay: 200ms;"></div>
+
+                <!-- Card 2: Named Entities -->
+                <div id="entities-card" class="glass-card animate-fade-in" style="animation-delay: 300ms;"></div>
+
+                <!-- Card 3: Link & SEO Analysis -->
+                <div id="links-card" class="glass-card animate-fade-in" style="animation-delay: 400ms;"></div>
+
+                <!-- Card 4: Spamdexing Report -->
+                <div id="spam-card" class="glass-card animate-fade-in" style="animation-delay: 500ms;"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Link to your JavaScript file -->
+    <!-- 'defer' tells the browser to wait until the HTML is parsed -->
+    <script src="script.js" defer></script>
+</body>
+</html>
+

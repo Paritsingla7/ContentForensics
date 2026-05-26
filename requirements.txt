@@ -1,0 +1,6 @@
+beautifulsoup4
+nltk
+readability-lxml
+requests
+spacy
+spacytextblob
