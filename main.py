@@ -3,13 +3,23 @@ import spacy
 import nltk
 import json
 import os
+from dataclasses import asdict
 from spacytextblob.spacytextblob import SpacyTextBlob
 from spacy.language import Language
 
 # Import functions from our other files
 from scraper import scrape_content
-from analyzer import analyze_content, analyze_seo_and_links
+from analyzer import (
+    analyze_content,
+    analyze_seo_and_links,
+    check_readability,
+    check_thin_content,
+    check_repetitive_phrasing,
+)
 from spamdexing import detect_spamdexing
+from config import load_config
+from crawler import discover_pages
+from site_checks import find_duplicates, find_scaled_pattern
 
 
 # --- Helper Functions (for setup) ---
@@ -57,26 +67,27 @@ def load_spacy_model():
 
 def main():
     """
-    Main execution function that controls the analysis workflow.
+    Main execution function that controls the crawl + analysis workflow.
     """
     if len(sys.argv) < 2:
-        print("Usage: python main.py <url_to_analyze>")
+        print("Usage: python main.py <url_to_analyze> [config.json]")
         sys.exit(1)
 
     url_to_analyze = sys.argv[1]
+    config_path = sys.argv[2] if len(sys.argv) > 2 else None
+    config = load_config(config_path)
 
-    # This dictionary will hold all our results
     report_data = {
-        "url": url_to_analyze,
+        "start_url": url_to_analyze,
+        "pages_crawled": 0,
+        "config_used": asdict(config),
+        "pages": [],
+        "site_issues": {},
         "error": None,
-        "sentiment": {},
-        "entities": [],
-        "links": {},
-        "spam": None,
-        "genericAnchors": 0
+        "warning": None,
     }
 
-    # 2. Setup (NLTK and spaCy)
+    # Setup (NLTK and spaCy)
     download_nltk_data()
     nlp = load_spacy_model()
     if nlp is None:
@@ -84,21 +95,31 @@ def main():
         save_report(report_data)
         sys.exit(1)
 
-    # 3. Phase 1: Scrape
-    print(f"Analyzing {url_to_analyze}...")
-    clean_text, full_soup, base_url = scrape_content(url_to_analyze)
+    print(f"Discovering pages from {url_to_analyze}...")
+    page_urls, warning = discover_pages(url_to_analyze, config)
+    report_data["warning"] = warning
 
-    # 4. Run Analysis (only if scraping was successful)
-    if clean_text:
+    if not page_urls:
+        report_data["error"] = warning or "No pages could be crawled."
+        save_report(report_data)
+        sys.exit(1)
 
-        # 5. Phase 2: Content Analysis (Sentiment & NER)
+    pages_for_site_checks = []
+
+    for page_url in page_urls:
+        print(f"Analyzing {page_url}...")
+        clean_text, full_soup, base_url = scrape_content(page_url)
+
+        if clean_text is None:
+            report_data["pages"].append({"url": page_url, "error": "Failed to scrape or extract content."})
+            continue
+
+        # Content Analysis (Sentiment & NER)
         sentiment_results, entity_results = analyze_content(clean_text, nlp)
-        report_data["sentiment"] = sentiment_results
 
         # Parse entities correctly - entity_results is a list of tuples like ("Python (ORG)", count)
         entities_list = []
         for entity_with_label, count in entity_results:
-            # Split the entity name and label - e.g., "Python (ORG)" -> ["Python", "(ORG)"]
             if ' (' in entity_with_label and entity_with_label.endswith(')'):
                 name, label = entity_with_label.rsplit(' (', 1)
                 label = label.rstrip(')')
@@ -106,44 +127,55 @@ def main():
             else:
                 entities_list.append({"name": entity_with_label, "type": "UNKNOWN", "count": count})
 
-        report_data["entities"] = entities_list
+        # Link Analysis
+        link_results = analyze_seo_and_links(full_soup, base_url, config)
 
-        # 6. Phase 2: Link Analysis
-        link_results = analyze_seo_and_links(full_soup, base_url)
-        report_data["links"] = {
-            "internal": link_results.get("Internal", 0),
-            "external": link_results.get("External", 0)
-        }
-        report_data["genericAnchors"] = link_results.get("Generic Anchor Text", 0)
-
-        # 7. Phase 3: Spamdexing Detection
+        # Spamdexing Detection
         spam_results = detect_spamdexing(clean_text, full_soup)
-
         spam_details = {}
-
         if "Keyword Stuffing" in spam_results:
             spam_details["keywordStuffing"] = spam_results['Keyword Stuffing']
-
         if "Hidden Text" in spam_results:
-            # Hidden Text is now a list of strings
             hidden_texts = spam_results['Hidden Text']
             spam_details["hiddenText"] = {
                 "count": len(hidden_texts),
-                "instances": hidden_texts
+                "instances": hidden_texts,
             }
 
-        if spam_details:
-            report_data["spam"] = spam_details
-        else:
-            report_data["spam"] = None
+        content_quality = {
+            **check_thin_content(clean_text, config),
+            "readability": check_readability(clean_text),
+            "repetitivePhrasing": check_repetitive_phrasing(clean_text, config),
+            "anchorOverOptimization": link_results.get("AnchorOverOptimization"),
+        }
 
-        print("Analysis Complete.")
+        report_data["pages"].append({
+            "url": page_url,
+            "sentiment": sentiment_results,
+            "entities": entities_list,
+            "links": {
+                "internal": link_results.get("Internal", 0),
+                "external": link_results.get("External", 0),
+            },
+            "genericAnchors": link_results.get("Generic Anchor Text", 0),
+            "spam": spam_details or None,
+            "content_quality": content_quality,
+        })
+        pages_for_site_checks.append({"url": page_url, "clean_text": clean_text})
 
+    report_data["pages_crawled"] = len(pages_for_site_checks)
+
+    if len(pages_for_site_checks) >= 2:
+        report_data["site_issues"] = {
+            "duplicates": find_duplicates(pages_for_site_checks, config),
+            "scaledPattern": find_scaled_pattern(pages_for_site_checks, config),
+        }
     else:
-        print("Analysis aborted due to scraping error.")
-        report_data["error"] = "Analysis aborted due to scraping error."
+        report_data["site_issues"] = {
+            "note": "Fewer than 2 pages crawled successfully; site-level checks skipped."
+        }
 
-    # 8. Save the report to a JSON file
+    print("Analysis Complete.")
     save_report(report_data)
 
 

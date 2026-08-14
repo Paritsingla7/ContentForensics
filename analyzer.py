@@ -1,5 +1,7 @@
+import re
 from collections import Counter
 from urllib.parse import urlparse, urljoin
+import nltk
 from spacytextblob.spacytextblob import SpacyTextBlob  # Ensures component is registered
 
 # --- Constants ---
@@ -20,6 +22,77 @@ def get_sentiment_label(polarity):
 
 
 # --- Analysis Functions ---
+
+def _count_syllables(word):
+    word = word.lower()
+    vowels = "aeiouy"
+    count = 0
+    prev_was_vowel = False
+    for ch in word:
+        is_vowel = ch in vowels
+        if is_vowel and not prev_was_vowel:
+            count += 1
+        prev_was_vowel = is_vowel
+    if word.endswith("e") and count > 1:
+        count -= 1
+    return max(count, 1)
+
+
+def check_readability(clean_text):
+    """
+    Flesch Reading Ease score computed from sentence/word/syllable counts.
+    """
+    if not clean_text.strip():
+        return {"score": 0.0, "label": "Unknown"}
+
+    sentences = nltk.sent_tokenize(clean_text)
+    words = [w for w in nltk.word_tokenize(clean_text) if w.isalpha()]
+
+    if not sentences or not words:
+        return {"score": 0.0, "label": "Unknown"}
+
+    total_syllables = sum(_count_syllables(w) for w in words)
+    words_per_sentence = len(words) / len(sentences)
+    syllables_per_word = total_syllables / len(words)
+
+    score = 206.835 - (1.015 * words_per_sentence) - (84.6 * syllables_per_word)
+    score = round(score, 1)
+
+    if score >= 60:
+        label = "Standard"
+    elif score >= 30:
+        label = "Difficult"
+    else:
+        label = "Very Difficult"
+
+    return {"score": score, "label": label}
+
+
+def check_thin_content(clean_text, config):
+    words = [w for w in clean_text.split() if any(c.isalpha() for c in w)]
+    word_count = len(words)
+    return {
+        "wordCount": word_count,
+        "thinContent": word_count < config.thin_content_word_floor,
+    }
+
+
+def check_repetitive_phrasing(clean_text, config):
+    words = [w.lower() for w in re.findall(r"[A-Za-z']+", clean_text)]
+    n = config.repetitive_phrase_ngram_size
+    if len(words) < n:
+        return []
+
+    ngram_counts = Counter(
+        " ".join(words[i:i + n]) for i in range(len(words) - n + 1)
+    )
+
+    return [
+        {"phrase": phrase, "count": count}
+        for phrase, count in ngram_counts.most_common(10)
+        if count >= config.repetitive_phrase_min_count
+    ]
+
 
 def analyze_content(clean_text, nlp_model):
     """
@@ -50,9 +123,10 @@ def analyze_content(clean_text, nlp_model):
     return sentiment_results, entity_counts.most_common(10)
 
 
-def analyze_seo_and_links(full_soup, base_url):
+def analyze_seo_and_links(full_soup, base_url, config):
     """
-    Analyzes the full HTML for link structure and anchor text quality.
+    Analyzes the full HTML for link structure, anchor text quality, and
+    anchor-text over-optimization.
     (Based on Program 9)
     """
     print("Analyzing links...")
@@ -62,10 +136,16 @@ def analyze_seo_and_links(full_soup, base_url):
     link_counts = {
         "Internal": 0,
         "External": 0,
-        "Generic Anchor Text": 0
+        "Generic Anchor Text": 0,
     }
+    anchor_counts = Counter()
 
     if not links:
+        link_counts["AnchorOverOptimization"] = {
+            "topAnchorText": None,
+            "exactMatchRatio": 0.0,
+            "flag": False,
+        }
         return link_counts
 
     for link in links:
@@ -84,5 +164,20 @@ def analyze_seo_and_links(full_soup, base_url):
         anchor_text = link.get_text(strip=True).lower()
         if anchor_text in GENERIC_ANCHOR_TEXT:
             link_counts["Generic Anchor Text"] += 1
+        elif anchor_text:
+            anchor_counts[anchor_text] += 1
+
+    total_meaningful_anchors = sum(anchor_counts.values())
+    if total_meaningful_anchors:
+        top_anchor, top_count = anchor_counts.most_common(1)[0]
+        ratio = top_count / total_meaningful_anchors
+    else:
+        top_anchor, ratio = None, 0.0
+
+    link_counts["AnchorOverOptimization"] = {
+        "topAnchorText": top_anchor,
+        "exactMatchRatio": round(ratio, 2),
+        "flag": ratio > config.anchor_overoptimization_ratio,
+    }
 
     return link_counts
