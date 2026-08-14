@@ -1,5 +1,6 @@
 from collections import Counter
 from urllib.parse import urlparse, urljoin
+import nltk
 from spacytextblob.spacytextblob import SpacyTextBlob  # Ensures component is registered
 
 # --- Constants ---
@@ -20,6 +21,51 @@ def get_sentiment_label(polarity):
 
 
 # --- Analysis Functions ---
+
+def _count_syllables(word):
+    word = word.lower()
+    vowels = "aeiouy"
+    count = 0
+    prev_was_vowel = False
+    for ch in word:
+        is_vowel = ch in vowels
+        if is_vowel and not prev_was_vowel:
+            count += 1
+        prev_was_vowel = is_vowel
+    if word.endswith("e") and count > 1:
+        count -= 1
+    return max(count, 1)
+
+
+def check_readability(clean_text):
+    """
+    Flesch Reading Ease score computed from sentence/word/syllable counts.
+    """
+    if not clean_text.strip():
+        return {"score": 0.0, "label": "Unknown"}
+
+    sentences = nltk.sent_tokenize(clean_text)
+    words = [w for w in nltk.word_tokenize(clean_text) if w.isalpha()]
+
+    if not sentences or not words:
+        return {"score": 0.0, "label": "Unknown"}
+
+    total_syllables = sum(_count_syllables(w) for w in words)
+    words_per_sentence = len(words) / len(sentences)
+    syllables_per_word = total_syllables / len(words)
+
+    score = 206.835 - (1.015 * words_per_sentence) - (84.6 * syllables_per_word)
+    score = round(score, 1)
+
+    if score >= 60:
+        label = "Standard"
+    elif score >= 30:
+        label = "Difficult"
+    else:
+        label = "Very Difficult"
+
+    return {"score": score, "label": label}
+
 
 def analyze_content(clean_text, nlp_model):
     """
