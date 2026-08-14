@@ -1,3 +1,4 @@
+import re
 from collections import Counter
 from urllib.parse import urlparse, urljoin
 import nltk
@@ -74,6 +75,23 @@ def check_thin_content(clean_text, config):
         "wordCount": word_count,
         "thinContent": word_count < config.thin_content_word_floor,
     }
+
+
+def check_repetitive_phrasing(clean_text, config):
+    words = [w.lower() for w in re.findall(r"[A-Za-z']+", clean_text)]
+    n = config.repetitive_phrase_ngram_size
+    if len(words) < n:
+        return []
+
+    ngram_counts = Counter(
+        " ".join(words[i:i + n]) for i in range(len(words) - n + 1)
+    )
+
+    return [
+        {"phrase": phrase, "count": count}
+        for phrase, count in ngram_counts.most_common(10)
+        if count >= config.repetitive_phrase_min_count
+    ]
 
 
 def analyze_content(clean_text, nlp_model):
