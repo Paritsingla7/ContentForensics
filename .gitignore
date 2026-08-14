@@ -17,3 +17,6 @@ report.json
 
 # Logs
 *.log
+
+# Local planning docs (kept out of git history)
+docs/superpowers/
