@@ -67,6 +67,15 @@ def check_readability(clean_text):
     return {"score": score, "label": label}
 
 
+def check_thin_content(clean_text, config):
+    words = [w for w in clean_text.split() if any(c.isalpha() for c in w)]
+    word_count = len(words)
+    return {
+        "wordCount": word_count,
+        "thinContent": word_count < config.thin_content_word_floor,
+    }
+
+
 def analyze_content(clean_text, nlp_model):
     """
     Analyzes clean text for Sentiment and Named Entities.
