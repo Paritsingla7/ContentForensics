@@ -56,19 +56,11 @@
                 <a href="#" id="report-url-link" target="_blank" rel="noopener noreferrer" class="text-sm text-blue-400 hover:text-blue-300 truncate block"></a>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Card 1: Content Analysis -->
-                <div id="content-card" class="glass-card animate-fade-in" style="animation-delay: 200ms;"></div>
+            <!-- Site-wide issues summary -->
+            <div id="site-issues-summary" class="mb-6 p-4 glass-card animate-fade-in-down" style="animation-delay: 150ms;"></div>
 
-                <!-- Card 2: Named Entities -->
-                <div id="entities-card" class="glass-card animate-fade-in" style="animation-delay: 300ms;"></div>
-
-                <!-- Card 3: Link & SEO Analysis -->
-                <div id="links-card" class="glass-card animate-fade-in" style="animation-delay: 400ms;"></div>
-
-                <!-- Card 4: Spamdexing Report -->
-                <div id="spam-card" class="glass-card animate-fade-in" style="animation-delay: 500ms;"></div>
-            </div>
+            <!-- Page list (each row expands to the per-page detail cards) -->
+            <div id="page-list" class="space-y-4"></div>
         </div>
 
     </div>
