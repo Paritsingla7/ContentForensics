@@ -123,9 +123,10 @@ def analyze_content(clean_text, nlp_model):
     return sentiment_results, entity_counts.most_common(10)
 
 
-def analyze_seo_and_links(full_soup, base_url):
+def analyze_seo_and_links(full_soup, base_url, config):
     """
-    Analyzes the full HTML for link structure and anchor text quality.
+    Analyzes the full HTML for link structure, anchor text quality, and
+    anchor-text over-optimization.
     (Based on Program 9)
     """
     print("Analyzing links...")
@@ -135,10 +136,16 @@ def analyze_seo_and_links(full_soup, base_url):
     link_counts = {
         "Internal": 0,
         "External": 0,
-        "Generic Anchor Text": 0
+        "Generic Anchor Text": 0,
     }
+    anchor_counts = Counter()
 
     if not links:
+        link_counts["AnchorOverOptimization"] = {
+            "topAnchorText": None,
+            "exactMatchRatio": 0.0,
+            "flag": False,
+        }
         return link_counts
 
     for link in links:
@@ -157,5 +164,20 @@ def analyze_seo_and_links(full_soup, base_url):
         anchor_text = link.get_text(strip=True).lower()
         if anchor_text in GENERIC_ANCHOR_TEXT:
             link_counts["Generic Anchor Text"] += 1
+        elif anchor_text:
+            anchor_counts[anchor_text] += 1
+
+    total_meaningful_anchors = sum(anchor_counts.values())
+    if total_meaningful_anchors:
+        top_anchor, top_count = anchor_counts.most_common(1)[0]
+        ratio = top_count / total_meaningful_anchors
+    else:
+        top_anchor, ratio = None, 0.0
+
+    link_counts["AnchorOverOptimization"] = {
+        "topAnchorText": top_anchor,
+        "exactMatchRatio": round(ratio, 2),
+        "flag": ratio > config.anchor_overoptimization_ratio,
+    }
 
     return link_counts

@@ -109,7 +109,9 @@ def main():
         report_data["entities"] = entities_list
 
         # 6. Phase 2: Link Analysis
-        link_results = analyze_seo_and_links(full_soup, base_url)
+        from config import load_config
+        config = load_config(None)
+        link_results = analyze_seo_and_links(full_soup, base_url, config)
         report_data["links"] = {
             "internal": link_results.get("Internal", 0),
             "external": link_results.get("External", 0)

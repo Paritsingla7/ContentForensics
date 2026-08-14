@@ -1,5 +1,11 @@
+from bs4 import BeautifulSoup
 from config import Config
-from analyzer import check_readability, check_thin_content, check_repetitive_phrasing
+from analyzer import (
+    check_readability,
+    check_thin_content,
+    check_repetitive_phrasing,
+    analyze_seo_and_links,
+)
 
 
 def test_check_readability_simple_text_scores_standard_or_higher():
@@ -40,3 +46,29 @@ def test_check_repetitive_phrasing_no_repeats_returns_empty():
     config = Config(repetitive_phrase_ngram_size=4, repetitive_phrase_min_count=5)
     result = check_repetitive_phrasing("every single word here is different from the rest", config)
     assert result == []
+
+
+def test_analyze_seo_and_links_flags_anchor_overoptimization():
+    html = """
+    <a href="/a">buy cheap shoes</a>
+    <a href="/b">buy cheap shoes</a>
+    <a href="/c">buy cheap shoes</a>
+    <a href="/d">contact us</a>
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    config = Config(anchor_overoptimization_ratio=0.5)
+    result = analyze_seo_and_links(soup, "https://example.com", config)
+    assert result["AnchorOverOptimization"]["topAnchorText"] == "buy cheap shoes"
+    assert result["AnchorOverOptimization"]["flag"] is True
+
+
+def test_analyze_seo_and_links_no_flag_when_varied():
+    html = """
+    <a href="/a">page one</a>
+    <a href="/b">page two</a>
+    <a href="/c">page three</a>
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    config = Config(anchor_overoptimization_ratio=0.5)
+    result = analyze_seo_and_links(soup, "https://example.com", config)
+    assert result["AnchorOverOptimization"]["flag"] is False
