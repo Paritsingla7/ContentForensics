@@ -41,3 +41,36 @@ def check_vocabulary_diversity(clean_text, config):
     ttr = len(set(words)) / len(words)
     score = _normalize(ttr, config.ai_vocab_diversity_human_reference, config.ai_vocab_diversity_ai_reference)
     return {"value": round(ttr, 3), "score": score}
+
+
+CLICHE_PHRASES = [
+    "in today's fast-paced world",
+    "it's important to note",
+    "in conclusion",
+    "delve into",
+    "unlock the potential of",
+    "in summary",
+    "furthermore",
+    "moreover",
+    "it is worth noting",
+    "navigate the complexities of",
+    "in the realm of",
+    "harness the power of",
+    "harnessing the power of",
+    "seamless integration",
+    "dive into",
+    "let's explore",
+    "at the end of the day",
+    "cutting-edge",
+    "game-changer",
+    "unleash the power",
+    "as an ai language model",
+]
+
+
+def check_cliche_phrases(clean_text, config):
+    lowered = clean_text.lower()
+    matches = [phrase for phrase in CLICHE_PHRASES if phrase in lowered]
+    count = len(matches)
+    score = min(100.0, count * config.ai_cliche_score_per_match)
+    return {"matches": matches, "count": count, "score": score}
