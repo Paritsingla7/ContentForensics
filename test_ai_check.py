@@ -2,7 +2,13 @@ import math
 from unittest.mock import MagicMock
 import torch
 from config import Config
-from ai_check import check_burstiness, check_vocabulary_diversity, check_cliche_phrases, check_perplexity
+from ai_check import (
+    check_burstiness,
+    check_vocabulary_diversity,
+    check_cliche_phrases,
+    check_perplexity,
+    compute_ai_likelihood,
+)
 
 
 def test_check_burstiness_uniform_sentences_scores_high():
@@ -108,3 +114,26 @@ def test_check_perplexity_unavailable_on_computation_error():
 
     result = check_perplexity("Some text here.", broken_model, tokenizer, config)
     assert result["available"] is False
+
+
+def test_compute_ai_likelihood_combines_weighted_scores():
+    config = Config()
+    model = _fake_model(loss_value=math.log(20.0))
+    tokenizer = _fake_tokenizer()
+    text = "This is one sentence. This is another quite different one indeed."
+
+    result = compute_ai_likelihood(text, model, tokenizer, config)
+
+    assert result["score"] is not None
+    assert 0 <= result["score"] <= 100
+    assert result["breakdown"]["perplexity"]["available"] is True
+
+
+def test_compute_ai_likelihood_renormalizes_when_perplexity_unavailable():
+    config = Config()
+    text = "This is one sentence. This is another quite different one indeed."
+
+    result = compute_ai_likelihood(text, None, None, config)
+
+    assert result["breakdown"]["perplexity"]["available"] is False
+    assert result["score"] is not None

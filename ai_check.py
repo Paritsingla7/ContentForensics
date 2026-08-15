@@ -113,3 +113,42 @@ def check_perplexity(clean_text, model, tokenizer, config):
     except Exception as e:
         print(f"[!] Perplexity computation failed: {e}")
         return {"available": False}
+
+
+def compute_ai_likelihood(clean_text, model, tokenizer, config):
+    burstiness = check_burstiness(clean_text, config)
+    vocab_diversity = check_vocabulary_diversity(clean_text, config)
+    cliche = check_cliche_phrases(clean_text, config)
+    perplexity = check_perplexity(clean_text, model, tokenizer, config)
+
+    weights = {
+        "perplexity": config.ai_weight_perplexity,
+        "burstiness": config.ai_weight_burstiness,
+        "vocabularyDiversity": config.ai_weight_vocab_diversity,
+        "clichePhrases": config.ai_weight_cliche,
+    }
+    scores = {
+        "perplexity": perplexity.get("score") if perplexity.get("available") else None,
+        "burstiness": burstiness.get("score"),
+        "vocabularyDiversity": vocab_diversity.get("score"),
+        "clichePhrases": cliche.get("score"),
+    }
+
+    available_weights = {k: w for k, w in weights.items() if scores[k] is not None}
+    total_weight = sum(available_weights.values())
+
+    composite = None
+    if total_weight > 0:
+        composite = round(
+            sum(scores[k] * w for k, w in available_weights.items()) / total_weight, 1
+        )
+
+    return {
+        "score": composite,
+        "breakdown": {
+            "perplexity": perplexity,
+            "burstiness": burstiness,
+            "vocabularyDiversity": vocab_diversity,
+            "clichePhrases": cliche,
+        },
+    }
