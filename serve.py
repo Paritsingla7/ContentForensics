@@ -1,5 +1,5 @@
 """
-Simple HTTP Server for SEO Analyzer Report Viewer
+Simple HTTP Server for ContentForensics Report Viewer
 This script starts a local web server to serve the report viewer HTML file.
 """
 
@@ -44,7 +44,7 @@ def main():
         url = f"http://localhost:{PORT}/report_veiwer.html"
 
         print("=" * 60)
-        print("🚀 SEO Analyzer Report Viewer Server")
+        print("🚀 ContentForensics Report Viewer Server")
         print("=" * 60)
         print(f"📂 Serving from: {DIRECTORY}")
         print(f"🌐 Server running at: http://localhost:{PORT}")

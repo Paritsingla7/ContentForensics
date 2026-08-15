@@ -1,4 +1,4 @@
-# 🔍 SEO Analyzer - Complete Guide
+# 🔍 ContentForensics - Complete Guide
 
 A content-quality, spam-risk, and AI-content-likelihood checker that crawls a whole website (not just one page) and reports sentiment, entities, link health, content-quality signals, site-wide duplicate/scaled-content patterns, and an AI-likelihood score per page.
 
