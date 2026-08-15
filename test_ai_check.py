@@ -1,5 +1,8 @@
+import math
+from unittest.mock import MagicMock
+import torch
 from config import Config
-from ai_check import check_burstiness, check_vocabulary_diversity, check_cliche_phrases
+from ai_check import check_burstiness, check_vocabulary_diversity, check_cliche_phrases, check_perplexity
 
 
 def test_check_burstiness_uniform_sentences_scores_high():
@@ -59,3 +62,49 @@ def test_check_cliche_phrases_caps_score_at_100():
     )
     result = check_cliche_phrases(text, config)
     assert result["score"] == 100.0
+
+
+class _FakeEncoding:
+    def __init__(self, input_ids):
+        self.input_ids = input_ids
+
+
+def _fake_tokenizer(num_tokens=10):
+    def tokenizer(text, return_tensors="pt", truncation=True, max_length=512):
+        return _FakeEncoding(torch.ones((1, num_tokens), dtype=torch.long))
+    return tokenizer
+
+
+def _fake_model(loss_value):
+    model = MagicMock()
+    output = MagicMock()
+    output.loss.item.return_value = loss_value
+    model.return_value = output
+    return model
+
+
+def test_check_perplexity_returns_unavailable_when_model_is_none():
+    config = Config()
+    result = check_perplexity("Some text.", None, None, config)
+    assert result["available"] is False
+
+
+def test_check_perplexity_computes_score_from_mocked_model():
+    config = Config(ai_perplexity_human_reference=60.0, ai_perplexity_ai_reference=20.0)
+    model = _fake_model(loss_value=math.log(20.0))
+    tokenizer = _fake_tokenizer()
+    result = check_perplexity("Some text here.", model, tokenizer, config)
+    assert result["available"] is True
+    assert result["value"] == 20.0
+    assert result["score"] == 100.0
+
+
+def test_check_perplexity_unavailable_on_computation_error():
+    config = Config()
+    tokenizer = _fake_tokenizer()
+
+    def broken_model(*args, **kwargs):
+        raise RuntimeError("out of memory")
+
+    result = check_perplexity("Some text here.", broken_model, tokenizer, config)
+    assert result["available"] is False

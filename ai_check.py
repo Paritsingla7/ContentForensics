@@ -1,6 +1,8 @@
 import math
 
 import nltk
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 def _normalize(value, human_reference, ai_reference):
@@ -74,3 +76,40 @@ def check_cliche_phrases(clean_text, config):
     count = len(matches)
     score = min(100.0, count * config.ai_cliche_score_per_match)
     return {"matches": matches, "count": count, "score": score}
+
+
+def load_perplexity_model():
+    """
+    Loads distilgpt2 once. Returns (None, None) on failure (e.g. no
+    internet, download issue) so the rest of the run can continue without
+    the perplexity signal.
+    """
+    try:
+        tokenizer = AutoTokenizer.from_pretrained("distilgpt2")
+        model = AutoModelForCausalLM.from_pretrained("distilgpt2")
+        model.eval()
+        return model, tokenizer
+    except Exception as e:
+        print(f"[!] Could not load perplexity model: {e}")
+        return None, None
+
+
+def check_perplexity(clean_text, model, tokenizer, config):
+    if model is None or tokenizer is None:
+        return {"available": False}
+
+    try:
+        encoding = tokenizer(clean_text, return_tensors="pt", truncation=True, max_length=512)
+        input_ids = encoding.input_ids
+        if input_ids.shape[1] < 2:
+            return {"available": False}
+
+        with torch.no_grad():
+            outputs = model(input_ids, labels=input_ids)
+        perplexity = math.exp(outputs.loss.item())
+
+        score = _normalize(perplexity, config.ai_perplexity_human_reference, config.ai_perplexity_ai_reference)
+        return {"value": round(perplexity, 2), "score": score, "available": True}
+    except Exception as e:
+        print(f"[!] Perplexity computation failed: {e}")
+        return {"available": False}
