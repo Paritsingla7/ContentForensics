@@ -4,3 +4,5 @@ readability-lxml
 requests
 spacy
 spacytextblob
+transformers
+torch
