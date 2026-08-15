@@ -20,6 +20,7 @@ from spamdexing import detect_spamdexing
 from config import load_config
 from crawler import discover_pages
 from site_checks import find_duplicates, find_scaled_pattern
+from ai_check import load_perplexity_model, compute_ai_likelihood
 
 
 # --- Helper Functions (for setup) ---
@@ -95,6 +96,11 @@ def main():
         save_report(report_data)
         sys.exit(1)
 
+    print("Loading AI-likelihood perplexity model (distilgpt2)...")
+    ai_model, ai_tokenizer = load_perplexity_model()
+    if ai_model is None:
+        print("[!] Perplexity signal unavailable this run; continuing with the other three AI-likelihood signals.")
+
     print(f"Discovering pages from {url_to_analyze}...")
     page_urls, warning = discover_pages(url_to_analyze, config)
     report_data["warning"] = warning
@@ -149,6 +155,8 @@ def main():
             "anchorOverOptimization": link_results.get("AnchorOverOptimization"),
         }
 
+        ai_likelihood = compute_ai_likelihood(clean_text, ai_model, ai_tokenizer, config)
+
         report_data["pages"].append({
             "url": page_url,
             "sentiment": sentiment_results,
@@ -160,6 +168,7 @@ def main():
             "genericAnchors": link_results.get("Generic Anchor Text", 0),
             "spam": spam_details or None,
             "content_quality": content_quality,
+            "ai_likelihood": ai_likelihood,
         })
         pages_for_site_checks.append({"url": page_url, "clean_text": clean_text})
 
