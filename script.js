@@ -189,6 +189,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div class="glass-card">${renderLinksCard(page.links)}</div>
                 <div class="glass-card">${renderSpamCard(page.spam, page.genericAnchors)}</div>
                 <div class="glass-card md:col-span-2">${renderContentQualityCard(page.content_quality)}</div>
+                <div class="glass-card md:col-span-2">${renderAiLikelihoodCard(page.ai_likelihood)}</div>
             </div>
         `;
     }
@@ -351,6 +352,45 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div class="mt-3">
                     <span class="card-item-label">Repetitive Phrasing</span>
                     ${repeatedHtml}
+                </div>
+            </div>
+        `;
+    }
+
+    function renderAiLikelihoodCard(aiLikelihood) {
+        aiLikelihood = aiLikelihood || {};
+        const breakdown = aiLikelihood.breakdown || {};
+        const perplexity = breakdown.perplexity || {};
+        const burstiness = breakdown.burstiness || {};
+        const vocabDiversity = breakdown.vocabularyDiversity || {};
+        const cliche = breakdown.clichePhrases || {};
+
+        const scoreText = aiLikelihood.score !== null && aiLikelihood.score !== undefined
+            ? `${aiLikelihood.score} / 100`
+            : 'N/A';
+
+        function signalRow(label, signal) {
+            if (signal.insufficientData) {
+                return `<div class="card-item"><span class="card-item-label">${label}</span><span class="card-item-value">Not enough text</span></div>`;
+            }
+            if (signal.available === false) {
+                return `<div class="card-item"><span class="card-item-label">${label}</span><span class="card-item-value">Unavailable</span></div>`;
+            }
+            return `<div class="card-item"><span class="card-item-label">${label}</span><span class="card-item-value">${signal.score}</span></div>`;
+        }
+
+        return `
+            <div class="p-5">
+                <h3 class="card-title">${getIcon('quality')} AI Likelihood</h3>
+                <div class="card-item">
+                    <span class="card-item-label">Composite Score</span>
+                    <span class="card-item-value">${scoreText}</span>
+                </div>
+                <div class="space-y-3 mt-3">
+                    ${signalRow('Perplexity', perplexity)}
+                    ${signalRow('Burstiness', burstiness)}
+                    ${signalRow('Vocabulary Diversity', vocabDiversity)}
+                    ${signalRow('Cliche Phrases', cliche)}
                 </div>
             </div>
         `;
